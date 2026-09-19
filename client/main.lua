@@ -92,8 +92,13 @@ local function setBlur(distance)
     local start = Config.MaxDistance * Config.BlurStart
     local amount = clamp((distance - start) / (Config.MaxDistance - start), 0.0, 1.0)
     if amount == blur or (math.abs(amount - blur) < 0.02 and amount > 0.0 and amount < 1.0) then return end
+    if amount == 0.0 then
+        ClearExtraTimecycleModifier()
+    elseif blur <= 0.0 then
+        SetExtraTimecycleModifier('hud_def_blur')
+    end
     blur = amount
-    SetExtraTimecycleModifierStrength(blur)
+    if blur > 0.0 then SetExtraTimecycleModifierStrength(blur) end
 end
 
 local function canOpen()
@@ -271,8 +276,8 @@ local function open(view)
     cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', pos.x, pos.y, pos.z, pitch, roll, yaw, fov, true, 2)
     RenderScriptCams(true, true, 300, true, false)
 
-    blur = -1.0
-    SetExtraTimecycleModifier('hud_def_blur')
+    blur = 0.0
+    ClearExtraTimecycleModifier()
     setBlur(distance)
     applyFilter()
     applyFocus()
