@@ -3,7 +3,8 @@ Buttons = {}
 local movie
 
 function Buttons.load()
-    movie = lib.requestScaleformMovie('instructional_buttons', 3000)
+    local fine, handle = pcall(lib.requestScaleformMovie, 'instructional_buttons', 3000)
+    movie = fine and handle or nil
 end
 
 function Buttons.set(rows)

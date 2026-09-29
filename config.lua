@@ -24,6 +24,10 @@ Config.Focus = { default = 5.0, min = 0.5, max = 50.0, speed = 6.0 }
 
 Config.AllowInVehicle = false
 
+-- Voice key left working while the camera is open. 249 is the default push to
+-- talk; change it if your voice resource uses another control.
+Config.PushToTalk = 249
+
 -- Return false to block the photo mode, e.g. while cuffed in your own police script
 Config.CanOpen = function()
     return true

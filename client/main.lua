@@ -2,7 +2,6 @@ lib.locale(Config.Locale)
 
 local controls = Config.Controls
 local MOVE_KEYS = { 32, 33, 34, 35 }
-local PUSH_TO_TALK = 249
 local COLLISION_FLAGS = 1 | 2 | 16
 local COLLISION_PADDING = 0.3
 
@@ -15,6 +14,7 @@ local pos, pitch, roll, yaw
 local fov, targetFov
 local focus = Config.Focus.default
 local filter = 1
+local ownFilter = false
 local useFocus, showGrid, hidePlayer, showHelp = false, false, false, true
 local blur = 0.0
 local shownFocus
@@ -55,8 +55,10 @@ local function applyFilter()
     local modifier = Config.Filters[filter].modifier
     if modifier then
         SetTimecycleModifier(modifier)
-    else
+        ownFilter = true
+    elseif ownFilter then
         ClearTimecycleModifier()
+        ownFilter = false
     end
 end
 
@@ -107,7 +109,12 @@ local function canOpen()
     if IsPedDeadOrDying(ped, true) or IsPedCuffed(ped) or IsPedRagdoll(ped) or IsPedFalling(ped) then return false end
     if cache.vehicle and not Config.AllowInVehicle then return false end
     if IsPlayerFreeAiming(cache.playerId) or IsPedShooting(ped) then return false end
-    return Config.CanOpen() ~= false
+    local fine, allowed = pcall(Config.CanOpen)
+    if not fine then
+        print(('^1[bupa-photocam]^7 Config.CanOpen errored: %s^0'):format(allowed))
+        return false
+    end
+    return allowed ~= false
 end
 
 local function shouldClose()
@@ -115,16 +122,25 @@ local function shouldClose()
     return IsPedDeadOrDying(ped, true) or IsPedRagdoll(ped) or (cache.vehicle and not Config.AllowInVehicle)
 end
 
-local function close()
+local function close(instant)
     if not active then return end
     active, closing = false, false
-    RenderScriptCams(false, true, 300, true, false)
-    ClearExtraTimecycleModifier()
-    if Config.Filters[filter].modifier then ClearTimecycleModifier() end
+    RenderScriptCams(false, not instant, instant and 0 or 300, true, false)
+    if blur > 0.0 then ClearExtraTimecycleModifier() end
+    blur = 0.0
+    if ownFilter then
+        ClearTimecycleModifier()
+        ownFilter = false
+    end
     Buttons.release()
 
     local oldCam, view = cam, savedView
     cam = nil
+    if instant then
+        DestroyCam(oldCam, false)
+        if view then SetFollowPedCamViewMode(view) end
+        return
+    end
     SetTimeout(350, function()
         DestroyCam(oldCam, false)
         if view then SetFollowPedCamViewMode(view) end
@@ -165,13 +181,19 @@ local function handleInput(frame)
         end
         local z = math.rad(yaw)
         local right = vector3(math.cos(z), math.sin(z), 0.0)
-        local target, distance = keepNearPlayer(pos + (forwardOf() * ahead + right * sideways + vector3(0.0, 0.0, lift)) * speed)
+        local target = pos + (forwardOf() * ahead + right * sideways + vector3(0.0, 0.0, lift)) * speed
         if not blocked(pos, target) then
             pos = target
             moved = true
-            setBlur(distance)
         end
     end
+
+    local leashed, distance = keepNearPlayer(pos)
+    if leashed ~= pos then
+        pos = leashed
+        moved = true
+    end
+    setBlur(distance)
 
     if moved then SetCamCoord(cam, pos.x, pos.y, pos.z) end
     if turned then SetCamRot(cam, pitch, roll, yaw, 2) end
@@ -193,9 +215,9 @@ local function handleToggles(frame)
         SetCamFov(cam, fov)
     end
 
-    if IsDisabledControlJustPressed(0, controls.nextFilter) or IsDisabledControlJustPressed(0, controls.prevFilter) then
-        local step = IsDisabledControlJustPressed(0, controls.nextFilter) and 1 or -1
-        filter = (filter - 1 + step) % #Config.Filters + 1
+    local nextFilter = IsDisabledControlJustPressed(0, controls.nextFilter)
+    if nextFilter or IsDisabledControlJustPressed(0, controls.prevFilter) then
+        filter = (filter - 1 + (nextFilter and 1 or -1)) % #Config.Filters + 1
         applyFilter()
         labels = true
     end
@@ -244,7 +266,7 @@ end
 local function run()
     while active do
         DisableAllControlActions(0)
-        EnableControlAction(0, PUSH_TO_TALK, true)
+        EnableControlAction(0, Config.PushToTalk, true)
         HideHudAndRadarThisFrame()
 
         if shouldClose() or IsDisabledControlJustReleased(0, controls.exit) then
@@ -276,8 +298,6 @@ local function open(view)
     cam = CreateCamWithParams('DEFAULT_SCRIPTED_CAMERA', pos.x, pos.y, pos.z, pitch, roll, yaw, fov, true, 2)
     RenderScriptCams(true, true, 300, true, false)
 
-    blur = 0.0
-    ClearExtraTimecycleModifier()
     setBlur(distance)
     applyFilter()
     applyFocus()
@@ -328,5 +348,5 @@ exports('setDisabled', function(state)
 end)
 
 AddEventHandler('onResourceStop', function(resource)
-    if resource == cache.resource then close() end
+    if resource == cache.resource then close(true) end
 end)
