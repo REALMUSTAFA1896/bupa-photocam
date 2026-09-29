@@ -2,7 +2,11 @@
 
 A free camera for taking screenshots in FiveM. Hold `V`, the HUD goes away and you get a camera you can fly around your character, tilt, zoom and put a focus point on. Press `Esc` and you're back where you were, same camera view as before.
 
-<!-- drag bupa-photocam-showcase.mp4 onto this line in the GitHub editor -->
+
+
+https://github.com/user-attachments/assets/d0581395-0222-4354-a782-b29e1b504df9
+
+
 
 It does not take the picture for you. Frame the shot, then press whatever you normally screenshot with — F12 on Steam, Win+Shift+S, ShareX, anything.
 
